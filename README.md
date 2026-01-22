@@ -458,10 +458,9 @@ Through this project, I demonstrated proficiency in:
 ## 📞 Contact
 
 **Your Name**
-- Email: your.email@example.com
-- LinkedIn: [linkedin.com/in/yourprofile](https://linkedin.com/in/yourprofile)
-- GitHub: [github.com/yourusername](https://github.com/yourusername)
-- Portfolio: [yourportfolio.com](https://yourportfolio.com)
+- Email: omar.ash.abdalla@gmail.com
+- LinkedIn: [linkedin.com/in/oabdallapro](https://linkedin.com/in/oabdallpro)
+- GitHub: [github.com/omarbinash](https://github.com/omarbinash)
 
 ---
 
