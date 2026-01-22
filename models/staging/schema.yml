@@ -1,0 +1,101 @@
+version: 2
+
+models:
+  - name: stg_orders
+    description: "Staging table for orders from The Look e-commerce"
+    columns:
+      - name: order_id
+        description: "Unique identifier for each order"
+        tests:
+          - unique
+          - not_null
+      
+      - name: user_id
+        description: "Customer who placed the order"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_users')
+              field: user_id
+      
+      - name: status
+        description: "Order status"
+        tests:
+          - accepted_values:
+              values: ['Complete', 'Shipped', 'Processing', 'Cancelled', 'Returned']
+      
+      - name: created_at
+        description: "When order was created"
+        tests:
+          - not_null
+
+  - name: stg_order_items
+    description: "Staging table for order line items"
+    columns:
+      - name: order_item_id
+        description: "Unique identifier for each line item"
+        tests:
+          - unique
+          - not_null
+      
+      - name: order_id
+        description: "Associated order"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_orders')
+              field: order_id
+      
+      - name: sale_price
+        description: "Price sold at - must be positive"
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+  - name: stg_marketing
+    description: "Staging table for marketing spend data"
+    columns:
+      - name: date
+        description: "Date of ad spend"
+        tests:
+          - not_null
+      
+      - name: campaign_id
+        description: "Campaign identifier"
+        tests:
+          - not_null
+      
+      - name: spend
+        description: "Amount spent - must be non-negative"
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      
+      - name: clicks
+        description: "Number of clicks"
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+  - name: stg_products
+    description: "Product catalog"
+    columns:
+      - name: product_id
+        description: "Unique product identifier"
+        tests:
+          - unique
+          - not_null
+      
+      - name: cost
+        description: "Product cost"
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      
+      - name: retail_price
+        description: "Retail price"
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"

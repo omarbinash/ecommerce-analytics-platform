@@ -1,0 +1,19 @@
+version: 2
+
+sources:
+  - name: raw
+    database: impressive-mile-485123-n2
+    tables:
+      - name: marketing_spend
+
+  - name: thelook
+    database: impressive-mile-485123-n2
+    schema: thelook_ecommerce
+    tables:
+      - name: orders
+      - name: order_items
+      - name: products
+      - name: users
+      - name: events
+        identifier: events_partitioned
+      - name: inventory_items
