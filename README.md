@@ -114,26 +114,85 @@ The platform transforms raw transactional data into strategic business intellige
 - Enables add-to-cart rate and session-level conversion analysis
 
 **Technical Implementation:**
+
+The sessionization logic uses a multi-step approach with window functions to transform individual events into meaningful user sessions:
+
 ```sql
--- Using LAG() and SUM() window functions to define unique sessions
-SELECT 
-  user_id,
-  event_time,
-  SUM(is_new_session) OVER (
-    PARTITION BY user_id 
-    ORDER BY event_time 
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) as session_number
-FROM (
+-- Full sessionization logic from int_web_sessions.sql
+
+-- Step 1: Calculate time gaps between consecutive events for each user
+WITH events_with_gaps AS (
+  SELECT
+    *,
+    LAG(event_time) OVER (
+      PARTITION BY user_id 
+      ORDER BY event_time, event_id  -- event_id as tiebreaker
+    ) AS prev_event_time,
+    TIMESTAMP_DIFF(
+      event_time,
+      LAG(event_time) OVER (
+        PARTITION BY user_id 
+        ORDER BY event_time, event_id
+      ),
+      MINUTE
+    ) AS minutes_since_last_event
+  FROM events
+),
+
+-- Step 2: Flag new sessions based on 30-minute inactivity threshold
+session_starts AS (
   SELECT *,
     CASE 
-      WHEN prev_event_time IS NULL THEN 1
-      WHEN TIMESTAMP_DIFF(event_time, prev_event_time, MINUTE) > 30 THEN 1
-      ELSE 0
-    END as is_new_session
+      WHEN prev_event_time IS NULL THEN 1           -- First event for user
+      WHEN minutes_since_last_event > 30 THEN 1     -- Inactive > 30 minutes
+      ELSE 0                                         -- Same session continues
+    END AS is_new_session
   FROM events_with_gaps
+),
+
+-- Step 3: Generate sequential session numbers using cumulative sum
+-- Each flag of 1 increments the session counter
+sessions_numbered AS (
+  SELECT *,
+    SUM(is_new_session) OVER (
+      PARTITION BY user_id 
+      ORDER BY event_time, event_id
+      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS user_session_number
+  FROM session_starts
+),
+
+-- Step 4: Create globally unique session IDs
+final_sessions AS (
+  SELECT 
+    CONCAT(
+      CAST(user_id AS STRING), 
+      '-', 
+      CAST(user_session_number AS STRING)
+    ) AS session_id,
+    user_id,
+    event_time,
+    event_type,
+    uri,
+    traffic_source
+  FROM sessions_numbered
 )
+
+SELECT * FROM final_sessions
+ORDER BY user_id, event_time, event_id
 ```
+
+**Key Technical Decisions:**
+- **30-minute threshold using `> 30` (not `>=`)**: Industry standard - a gap of exactly 30 minutes is considered same session
+- **event_id as tiebreaker**: Ensures deterministic ordering when multiple events have identical timestamps
+- **Cumulative sum pattern**: Transforms binary flags (0,1) into sequential session numbers (1,1,1,2,2,3...)
+- **Window functions handle out-of-order data**: ORDER BY in OVER clause sorts data regardless of ingestion order
+- **UTC timestamps**: All TIMESTAMP types ensure consistent calculations across timezones
+
+**Business Impact:**
+- Accurate conversion funnel metrics (15% add-to-cart rate, 2-3% session conversion)
+- Enables campaign attribution by linking purchases to session traffic sources
+- Powers marketing ROI calculations at the session level
 
 ### 2. **Multi-Touch Marketing Attribution**
 - Attributes revenue and orders to specific campaigns across 4 channels
